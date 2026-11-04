@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kamil3D</title>
+<style>
+:root{--bg:#080d18;--panel:#111b2d;--blue:#168cff;--text:#f4f7ff;--muted:#a9b8ce}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+header{background:#0c1526;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #1b3557}
+.logo{font-size:27px;font-weight:900;color:#42a5ff}
+button{background:var(--blue);border:0;color:white;padding:11px 14px;border-radius:9px;font-weight:bold;cursor:pointer;margin:3px}
+button:hover{filter:brightness(1.15)}
+input,textarea,select{background:#091321;color:white;border:1px solid #294568;border-radius:8px;padding:11px;width:100%;margin:5px 0}
+.container{max-width:1150px;margin:auto;padding:20px}
+.hero{background:linear-gradient(120deg,#10284a,#07111f);padding:30px;border-radius:18px;margin-bottom:20px}
+.hero h1{font-size:34px;margin:0 0 10px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}
+.filters input{flex:1;min-width:180px}
+.products{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px}
+.product,.panel,.cart{background:var(--panel);padding:16px;border:1px solid #203958;border-radius:13px}
+.product h3{margin:8px 0}
+.emoji{font-size:42px}
+.price{font-size:20px;color:#54b2ff;font-weight:bold;margin:12px 0}
+.tag{color:#7dc4ff;font-size:12px}
+.hidden{display:none!important}
+section{margin:25px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1;min-width:120px}
+footer{text-align:center;padding:30px;color:var(--muted)}
+hr{border:0;border-top:1px solid #29405d;margin:15px 0}
+.small{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+ <div class="logo">▣ Kamil3D</div>
+ <div>
+  <button onclick="showCart()">🛒 Koszyk (<span id="count">0</span>)</button>
+  <button onclick="showLogin('owner')">👑 Panel właściciela</button>
+  <button onclick="showLogin('admin')">🛠️ Panel administratora</button>
+ </div>
+</header>
+
+<main class="container">
+ <div class="hero">
+  <h1>Witaj w Kamil3D!</h1>
+  <p>Twoje pomysły – nasze wydruki 3D.</p>
+  <p class="small">Odkryj nasze wydruki i Mystery Boxy!</p>
+ </div>
+
+ <div class="filters">
+  <input id="search" placeholder="Szukaj produktu..." oninput="render()">
+  <select id="category" onchange="render()">
+   <option value="">Wszystkie produkty</option>
+   <option>Breloki</option>
+   <option>Figurki</option>
+   <option>Akcesoria</option>
+   <option>Mystery Box</option>
+  </select>
+ </div>
+
+ <div id="products" class="products"></div>
+
+ <section id="cart" class="cart hidden">
+  <h2>🛒 Twój koszyk</h2>
+  <div id="cartItems"></div>
+  <hr>
+  <h3>Bon rabatowy</h3>
+  <input id="couponInput" placeholder="Wpisz 16-cyfrowy kod">
+  <button onclick="applyCoupon()">Zastosuj bon</button>
+  <button onclick="clearCoupon()" style="background:#33465f">Usuń bon</button>
+  <p id="couponMessage" class="small"></p>
+  <div id="freeProductBox" class="hidden">
+   <label>Wybierz jedną sztukę produktu, która ma być darmowa:</label>
+   <select id="freeProductSelect" onchange="updateCart()"></select>
+  </div>
+  <p>Rabat: <b id="discountLabel">0%</b></p>
+  <h3>Razem: <span id="total">0,00 zł</span></h3>
+  <h3>Dane do zamówienia</h3>
+  <input id="customerName" placeholder="Imię i nazwisko">
+  <input id="customerEmail" type="email" placeholder="E-mail">
+  <input id="customerPhone" placeholder="Telefon">
+  <input id="customerStreet" placeholder="Ulica i numer">
+  <div class="row">
+   <input id="customerZip" placeholder="Kod pocztowy">
+   <input id="customerCity" placeholder="Miasto">
+  </div>
+  <textarea id="notes" placeholder="Uwagi do zamówienia"></textarea>
+  <button onclick="placeOrder()">Złóż zamówienie demonstracyjne</button>
+  <button onclick="hideCart()" style="background:#33465f">Zamknij</button>
+ </section>
+
+ <section id="loginOwner" class="panel hidden">
+  <h2>👑 Logowanie właściciela</h2>
+  <input id="ownerPassword" type="password" placeholder="Hasło właściciela">
+  <button onclick="checkLogin('owner')">Zaloguj jako właściciel</button>
+  <button onclick="closePanels()" style="background:#33465f">Zamknij</button>
+  <p id="ownerLoginMessage" class="small"></p>
+ </section>
+
+ <section id="loginAdmin" class="panel hidden">
+  <h2>🛠️ Logowanie administratora</h2>
+  <input id="adminPasswordLogin" type="password" placeholder="Hasło administratora">
+  <button onclick="checkLogin('admin')">Zaloguj jako administrator</button>
+  <button onclick="closePanels()" style="background:#33465f">Zamknij</button>
+  <p id="adminLoginMessage" class="small"></p>
+ </section>
+
+ <section id="adminPanel" class="panel hidden">
+  <h2>🛠️ Panel administratora</h2>
+  <p class="small">Dodawanie produktów i podgląd zamówień.</p>
+  <h3>Dodaj produkt</h3>
+  <input id="adminName" placeholder="Nazwa produktu">
+  <input id="adminPrice" type="number" min="0.01" step="0.01" placeholder="Cena w zł">
+  <button onclick="addProduct('admin')">Dodaj produkt</button>
+  <h3>Zamówienia</h3>
+  <div id="adminOrders"></div>
+  <button onclick="logout()" style="background:#33465f">Wyloguj</button>
+ </section>
+
+ <section id="ownerPanel" class="panel hidden">
+  <h2>👑 Panel właściciela</h2>
+  <p class="small">Pełny dostęp do demonstracyjnego zarządzania sklepem.</p>
+  <h3>Dodaj produkt</h3>
+  <input id="ownerName" placeholder="Nazwa produktu">
+  <input id="ownerPrice" type="number" min="0.01" step="0.01" placeholder="Cena w zł">
+  <button onclick="addProduct('owner')">Dodaj produkt</button>
+  <h3>Generuj bon</h3>
+  <select id="couponType">
+   <option value="10">10% rabatu</option>
+   <option value="20">20% rabatu</option>
+   <option value="50">50% rabatu</option>
+   <option value="free">Darmowy jeden produkt</option>
+  </select>
+  <button onclick="generateCoupon()">Wygeneruj bon</button>
+  <div id="couponList"></div>
+  <h3>Zamówienia</h3>
+  <div id="ownerOrders"></div>
+  <h3>Produkty</h3>
+  <div id="ownerProducts"></div>
+  <button onclick="logout()" style="background:#33465f">Wyloguj</button>
+ </section>
+</main>
+
+<footer>Kamil3D © 2026 · Sklep demonstracyjny</footer>
+
+<script>
+"use strict";
+
+const OWNER_PASSWORD="2137&&";
+const ADMIN_PASSWORD="admin2137&";
+
+const original=[
+["Brelok kostka","Breloki",12,"🔷"],
+["Brelok serce","Breloki",10,"💙"],
+["Brelok gwiazda","Breloki",12,"⭐"],
+["Brelok smok","Breloki",18,"🐉"],
+["Brelok robot","Breloki",15,"🤖"],
+["Brelok napis","Breloki",14,"🔤"],
+["Brelok gaming","Breloki",16,"🎮"],
+["Brelok mini","Breloki",9,"🔹"],
+["Brelok planeta","Breloki",15,"🪐"],
+["Brelok kot","Breloki",13,"🐱"],
+["Figurka smok","Figurki",35,"🐉"],
+["Figurka robot","Figurki",30,"🤖"],
+["Figurka kot","Figurki",25,"🐈"],
+["Figurka pies","Figurki",25,"🐕"],
+["Figurka astronauta","Figurki",32,"🚀"],
+["Figurka dinozaur","Figurki",28,"🦖"],
+["Figurka sowa","Figurki",24,"🦉"],
+["Figurka lis","Figurki",27,"🦊"],
+["Figurka żaba","Figurki",22,"🐸"],
+["Figurka królik","Figurki",25,"🐰"],
+["Stojak na telefon","Akcesoria",20,"📱"],
+["Uchwyt na kabel","Akcesoria",8,"🔌"],
+["Organizer biurkowy","Akcesoria",28,"🗂️"],
+["Podstawka","Akcesoria",15,"⬜"],
+["Mini doniczka","Akcesoria",18,"🪴"],
+["Zawieszka","Akcesoria",12,"🔹"],
+["Pudełko małe","Akcesoria",20,"📦"],
+["Pudełko duże","Akcesoria",35,"📦"],
+["Stojak na słuchawki","Akcesoria",30,"🎧"],
+["Uchwyt na pad","Akcesoria",32,"🎮"],
+["Zakładka do książki","Akcesoria",9,"📖"],
+["Mini wazon","Akcesoria",22,"🌷"],
+["Podstawka pod kubek","Akcesoria",10,"☕"],
+["Organizer kabli","Akcesoria",12,"🧩"],
+["Zegar dekoracyjny","Akcesoria",45,"🕒"],
+["Ramka na zdjęcie","Akcesoria",25,"🖼️"],
+["Mini rakieta","Figurki",20,"🚀"],
+["Mini samochód","Figurki",22,"🚗"],
+["Mini samolot","Figurki",20,"✈️"],
+["Mini statek","Figurki",24,"🚢"],
+["Brelok księżyc","Breloki",13,"🌙"],
+["Brelok błyskawica","Breloki",12,"⚡"],
+["Figurka pingwin","Figurki",25,"🐧"],
+["Figurka miś","Figurki",26,"🧸"],
+["Stojak na długopisy","Akcesoria",20,"✏️"],
+["Kieszonkowe pudełko","Akcesoria",16,"📦"],
+["Mini trofeum","Figurki",30,"🏆"],
+["Podstawka pod tablet","Akcesoria",35,"📱"],
+["Brelok diament","Breloki",14,"💎"],
+["Figurka smok mini","Figurki",20,"🐲"]
+];
+
+const defaultProducts=original.map((p,i)=>({
+ id:i+1,name:p[0],category:p[1],price:p[2],emoji:p[3]
+})).concat([
+ {id:51,name:"Mystery Box Mały",category:"Mystery Box",price:29,emoji:"🎁"},
+ {id:52,name:"Mystery Box Średni",category:"Mystery Box",price:59,emoji:"🎁"},
+ {id:53,name:"Mystery Box Duży",category:"Mystery Box",price:99,emoji:"🎁"},
+ {id:54,name:"Mystery Box Właściciela",category:"Mystery Box",price:1000,emoji:"👑",noCoupon:true}
+]);
+
+function load(key,fallback){
+ try{
+  const value=localStorage.getItem(key);
+  return value===null?fallback:JSON.parse(value);
+ }catch(e){return fallback;}
+}
+
+function save(key,value){
+ try{
+  localStorage.setItem(key,JSON.stringify(value));
+ }catch(e){
+  alert("Nie udało się zapisać danych w przeglądarce.");
+ }
+}
+
+function money(n){
+ return Number(n).toFixed(2).replace(".",",")+" zł";
+}
+
+function byId(id){
+ return document.getElementById(id);
+}
+
+function escapeHtml(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+ "&":"&amp;",
+ "<":"&lt;",
+ ">":"&gt;",
+ '"':"&quot;",
+ "'":"&#39;"
+ }[c]));
+}
+
+let products=load("k3d_products",defaultProducts);
+let coupons=load("k3d_coupons",[]);
+let orders=load("k3d_orders",[]);
+let cart=[];
+let activeCoupon=null;
+let role="";
+
+function getProduct(id){
+ return products.find(p=>Number(p.id)===Number(id));
+}
+
+function isEligible(id){
+ const p=getProduct(id);
+ return !!p&&!p.noCoupon;
+}
+
+function getEligibleItems(){
+ return cart.filter(item=>isEligible(item.id));
+}
+
+function getFreeId(){
+ if(!activeCoupon||activeCoupon.type!=="free")return null;
+ const id=Number(byId("freeProductSelect").value);
+ return getEligibleItems().some(item=>item.id===id)?id:null;
+}
+
+/* Rabat jednej sztuki */
+function discountForItem(item){
+ const p=getProduct(item.id);
+ if(!p||p.noCoupon||!activeCoupon)return 0;
+
+ if(activeCoupon.type==="free"&&item.id===getFreeId()){
+  return p.price;
+ }
+
+ if(activeCoupon.type==="percent"){
+  return p.price*activeCoupon.discount/100;
+ }
+
+ return 0;
+}
+
+/* Cena całej pozycji */
+function getLineTotal(item){
+ const p=getProduct(item.id);
+ if(!p)return 0;
+
+ let result=p.price*item.qty;
+
+ if(p.noCoupon||!activeCoupon)return result;
+
+ if(activeCoupon.type==="percent"){
+  result-=p.price*item.qty*activeCoupon.discount/100;
+ }
+
+ if(activeCoupon.type==="free"&&item.id===getFreeId()){
+  result-=p.price;
+ }
+
+ return Math.max(0,result);
+}
+
+function total(){
+ return cart.reduce((sum,item)=>sum+getLineTotal(item),0);
+}
+
+function render(){
+ const q=byId("search").value.toLowerCase();
+ const cat=byId("category").value;
+
+ byId("products").innerHTML=products.filter(p=>
+  (!cat||p.category===cat)&&p.name.toLowerCase().includes(q)
+ ).map(p=>`
+ <article class="product">
+  <div class="emoji">${escapeHtml(p.emoji||"🧩")}</div>
+  <span class="tag">${escapeHtml(p.category)}</span>
+  <h3>${escapeHtml(p.name)}</h3>
+  <div class="price">${money(p.price)}</div>
+  <button onclick="addCart(${Number(p.id)})">Dodaj do koszyka</button>
+ </article>`).join("");
+
+ updateCart();
+}
+
+function addCart(id){
+ if(!getProduct(id))return;
+
+ const item=cart.find(x=>Number(x.id)===Number(id));
+
+ if(item)item.qty++;
+ else cart.push({id:Number(id),qty:1});
+
+ updateCart();
+}
+
+function removeCart(id){
+ cart=cart.filter(x=>Number(x.id)!==Number(id));
+ updateCart();
+}
+
+function changeQty(id,amount){
+ const item=cart.find(x=>Number(x.id)===Number(id));
+ if(!item)return;
+
+ item.qty+=amount;
+
+ if(item.qty<=0)removeCart(id);
+ else updateCart();
+}
+
+function showCart(){
+ closePanels();
+ byId("cart").classList.remove("hidden");
+ updateCart();
+}
+
+function hideCart(){
+ byId("cart").classList.add("hidden");
+}
+
+function updateCart(){
+ byId("count").textContent=cart.reduce((s,x)=>s+x.qty,0);
+
+ byId("cartItems").innerHTML=cart.map(item=>{
+  const p=getProduct(item.id);
+  if(!p)return "";
+
+  const lineTotal=getLineTotal(item);
+  const discount=discountForItem(item);
+
+  return `<p>${escapeHtml(p.emoji||"🧩")} ${escapeHtml(p.name)} × ${item.qty}
+   — ${money(lineTotal)}
+   ${discount>0?`<span class="small">(rabat: ${money(discount)} na sztukę)</span>`:""}
+   <button onclick="changeQty(${Number(p.id)},1)">+</button>
+   <button onclick="changeQty(${Number(p.id)},-1)">−</button>
+   <button onclick="removeCart(${Number(p.id)})">Usuń</button></p>`;
+ }).join("")||"Koszyk jest pusty.";
+
+ const freeBox=byId("freeProductBox");
+
+ if(activeCoupon&&activeCoupon.type==="free"){
+  const eligible=getEligibleItems();
+  freeBox.classList.remove("hidden");
+
+  const select=byId("freeProductSelect");
+  const oldValue=select.value;
+
+  select.innerHTML=eligible.map(item=>{
+   const p=getProduct(item.id);
+   return `<option value="${Number(p.id)}">${escapeHtml(p.name)} (w koszyku: ${item.qty})</option>`;
+  }).join("");
+
+  if(eligible.some(x=>String(x.id)===oldValue)){
+   select.value=oldValue;
+  }else if(eligible.length){
+   select.value=String(eligible[0].id);
+  }
+
+  if(!eligible.length){
+   select.innerHTML='<option value="">Brak produktów objętych bonem</option>';
+  }
+ }else{
+  freeBox.classList.add("hidden");
+ }
+
+ byId("total").textContent=money(total());
+
+ byId("discountLabel").textContent=activeCoupon?
+  (activeCoupon.type==="free"?"1 darmowy produkt":activeCoupon.discount+"%"):"0%";
+}
+
+function applyCoupon(){
+ const code=byId("couponInput").value.trim();
+ const coupon=coupons.find(c=>c.code===code&&!c.used);
+
+ if(!cart.length){
+  byId("couponMessage").textContent="Najpierw dodaj produkt do koszyka.";
+  return;
+ }
+
+ if(!/^\d{16}$/.test(code)||!coupon){
+  byId("couponMessage").textContent="Nieprawidłowy lub wykorzystany bon.";
+  return;
+ }
+
+ if(!getEligibleItems().length){
+  byId("couponMessage").textContent="Bon nie działa na Mystery Box Właściciela.";
+  return;
+ }
+
+ activeCoupon={
+  code:coupon.code,
+  type:coupon.type||"percent",
+  discount:coupon.discount||0
+ };
+
+ byId("couponMessage").textContent=coupon.type==="free"?
+  "Bon na darmowy produkt zastosowany. Wybierz produkt poniżej.":
+  "Bon zastosowany. Mystery Box Właściciela nie jest objęty rabatem.";
+
+ updateCart();
+}
+
+function clearCoupon(){
+ activeCoupon=null;
+ byId("couponInput").value="";
+ byId("couponMessage").textContent="Bon usunięty.";
+ updateCart();
+}
+
+function placeOrder(){
+ if(!cart.length){
+  alert("Koszyk jest pusty.");
+  return;
+ }
+
+ const name=byId("customerName").value.trim();
+ const email=byId("customerEmail").value.trim();
+
+ if(!name||!email){
+  alert("Uzupełnij imię i e-mail.");
+  return;
+ }
+
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+  alert("Wpisz poprawny adres e-mail.");
+  return;
+ }
+
+ let couponToUse=null;
+
+ if(activeCoupon){
+  couponToUse=coupons.find(c=>c.code===activeCoupon.code&&!c.used);
+
+  if(!couponToUse){
+   alert("Ten bon nie jest już dostępny. Usuń go i spróbuj ponownie.");
+   clearCoupon();
+   return;
+  }
+
+  if(activeCoupon.type==="free"&&!getFreeId()){
+   alert("Wybierz produkt, który ma być darmowy.");
+   return;
+  }
+ }
+
+ const order={
+  id:Date.now(),
+  date:new Date().toLocaleString("pl-PL"),
+  name,
+  email,
+  phone:byId("customerPhone").value.trim(),
+  street:byId("customerStreet").value.trim(),
+  zip:byId("customerZip").value.trim(),
+  city:byId("customerCity").value.trim(),
+  notes:byId("notes").value.trim(),
+
+  items:cart.map(item=>{
+   const p=getProduct(item.id);
+
+   return {
+    id:item.id,
+    name:p?p.name:"Usunięty produkt",
+    qty:item.qty,
+    unitPrice:p?p.price:0,
+    total:p?getLineTotal(item):0
+   };
+  }),
+
+  total:total(),
+  coupon:couponToUse?couponToUse.code:null,
+  status:"Nowe"
+ };
+
+ orders.push(order);
+
+ if(couponToUse)couponToUse.used=true;
+
+ save("k3d_orders",orders);
+ save("k3d_coupons",coupons);
+
+ cart=[];
+ activeCoupon=null;
+
+ byId("couponInput").value="";
+ byId("couponMessage").textContent="";
+
+ ["customerName","customerEmail","customerPhone","customerStreet",
+  "customerZip","customerCity","notes"].forEach(id=>{
+   byId(id).value="";
+  });
+
+ updateCart();
+ hideCart();
+ refreshPanels();
+
+ alert("Zamówienie demonstracyjne zapisane!");
+}
+
+function showLogin(who){
+ closePanels();
+ role="";
+
+ if(who==="owner"){
+  byId("ownerPassword").value="";
+  byId("ownerLoginMessage").textContent="";
+  byId("loginOwner").classList.remove("hidden");
+ }else{
+  byId("adminPasswordLogin").value="";
+  byId("adminLoginMessage").textContent="";
+  byId("loginAdmin").classList.remove("hidden");
+ }
+}
+
+function closePanels(){
+ ["loginOwner","loginAdmin","ownerPanel","adminPanel"].forEach(id=>
+  byId(id).classList.add("hidden")
+ );
+}
+
+function checkLogin(who){
+ const password=who==="owner"?
+  byId("ownerPassword").value:
+  byId("adminPasswordLogin").value;
+
+ if(who==="owner"&&password===OWNER_PASSWORD){
+  role="owner";
+  closePanels();
+  byId("ownerPanel").classList.remove("hidden");
+
+ }else if(who==="admin"&&password===ADMIN_PASSWORD){
+  role="admin";
+  closePanels();
+  byId("adminPanel").classList.remove("hidden");
+
+ }else{
+  byId(who==="owner"?"ownerLoginMessage":"adminLoginMessage").textContent="Nieprawidłowe hasło.";
+  return;
+ }
+
+ refreshPanels();
+}
+
+function logout(){
+ role="";
+ closePanels();
+}
+
+function addProduct(who){
+ if(who==="owner"&&role!=="owner")return;
+ if(who==="admin"&&role!=="admin")return;
+
+ const name=byId(who==="owner"?"ownerName":"adminName").value.trim();
+ const price=Number(byId(who==="owner"?"ownerPrice":"adminPrice").value);
+
+ if(!name||!Number.isFinite(price)||price<=0){
+  alert("Wpisz nazwę i poprawną cenę.");
+  return;
+ }
+
+ products.push({
+  id:Math.max(0,...products.map(p=>Number(p.id)||0))+1,
+  name,
+  category:"Akcesoria",
+  price,
+  emoji:"🧩"
+ });
+
+ save("k3d_products",products);
+
+ byId(who==="owner"?"ownerName":"adminName").value="";
+ byId(who==="owner"?"ownerPrice":"adminPrice").value="";
+
+ render();
+ refreshPanels();
+
+ alert("Produkt dodany.");
+}
+
+function deleteProduct(id){
+ if(role!=="owner")return;
+
+ if(!confirm("Usunąć ten produkt?"))return;
+
+ products=products.filter(p=>Number(p.id)!==Number(id));
+ cart=cart.filter(x=>Number(x.id)!==Number(id));
+
+ save("k3d_products",products);
+
+ render();
+ refreshPanels();
+}
+
+function generateCoupon(){
+ if(role!=="owner")return;
+
+ let code;
+
+ do{
+  code=Array.from({length:16},()=>Math.floor(Math.random()*10)).join("");
+ }while(coupons.some(c=>c.code===code));
+
+ const type=byId("couponType").value;
+
+ coupons.push({
+  code,
+  type:type==="free"?"free":"percent",
+  discount:type==="free"?0:Number(type),
+  used:false
+ });
+
+ save("k3d_coupons",coupons);
+ refreshPanels();
+}
+
+function refreshPanels(){
+ byId("adminOrders").innerHTML=orders.map(o=>
+  `<p>#${o.id} · ${escapeHtml(o.date)} · ${escapeHtml(o.name)} · ${money(o.total)} · ${escapeHtml(o.status)}</p>`
+ ).join("")||"Brak zamówień.";
+
+ byId("ownerOrders").innerHTML=orders.map(o=>
+ `<div>
+  <b>Zamówienie #${o.id}</b> · ${escapeHtml(o.date)}
+  <p>${escapeHtml(o.name)} · ${escapeHtml(o.email)} · ${money(o.total)}</p>
+  <p>${(o.items||[]).map(x=>
+   escapeHtml(x.name||"Produkt")+" × "+x.qty+" — "+money(x.total||0)
+  ).join(", ")}</p>
+  <p>Telefon: ${escapeHtml(o.phone||"")}</p>
+  <p>Adres: ${escapeHtml(o.street||"")} ${escapeHtml(o.zip||"")} ${escapeHtml(o.city||"")}</p>
+  <p>Uwagi: ${escapeHtml(o.notes||"")}</p>
+  <p>Status: ${escapeHtml(o.status)}</p>
+  <button onclick="setOrderStatus(${o.id},'W realizacji')">W realizacji</button>
+  <button onclick="setOrderStatus(${o.id},'Zrealizowane')">Zrealizowane</button>
+  <hr>
+ </div>`
+ ).join("")||"Brak zamówień.";
+
+ byId("couponList").innerHTML=coupons.map(c=>
+ `<p>${escapeHtml(c.code)} — ${c.type==="free"?"Darmowy produkt":c.discount+"%"} — ${c.used?"wykorzystany":"aktywny"}</p>`
+ ).join("")||"Nie wygenerowano bonów.";
+
+ byId("ownerProducts").innerHTML=products.map(p=>
+ `<p>${escapeHtml(p.name)} — ${money(p.price)}
+  <button onclick="deleteProduct(${Number(p.id)})">Usuń</button></p>`
+ ).join("");
+}
+
+function setOrderStatus(id,status){
+ if(role!=="owner")return;
+
+ const order=orders
+</script>
+</body>
+</html>
